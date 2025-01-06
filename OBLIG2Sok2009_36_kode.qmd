@@ -1,0 +1,135 @@
+---
+title: "OBLIG2Sok2009_36"
+author: "36"
+format: docx
+echo: true
+editor: visual
+warning: false
+---
+
+```{r}
+rm(list=ls())
+
+load(url("http://www.principlesofeconometrics.com/poe5/data/rdata/mroz.rdata"))
+```
+
+a\) Kjør en enkel lineær regresjonsanalyse. Velg avhengig og uavhengig variabel selv, og forklar hva du ønsker/har mulighet å finne ut av ved bruk av disse variablene.
+
+```{r}
+library(tidyverse)
+library(car)
+theme_set(theme_minimal())
+
+modell <- lm(mroz$educ ~ mroz$mothereduc)
+```
+
+b\) Vis og forklar resultatene dine. Bruk grafer, tabeller, og output til å forklare din modell, og ta med alle detaljer og statistikker som er relevante for din analyse.
+
+```{r}
+summary(modell)
+```
+
+```{r}
+mroz %>% 
+  ggplot(aes(x=educ,y=mothereduc)) + geom_point() + geom_smooth(method = "lm") + labs(title = 'Sammenhengen mellom døtres og mors utdanning') + geom_text(aes(x = max(educ), y = max(mothereduc), #Plassering av korrelasjons-koeffisient 
+                label = paste("Korrelasjon:", round(cor(educ,mothereduc), 2))),
+            hjust = 1, vjust = 1, size = 4, color = "red")
+```
+
+c\) Undersøk hvorvidt modellen din bryter med antakelsene til lineær regresjon. Hvis ja, hva er konsekvensen av de eventuelle bruddene? Vis og forklar hvordan du testet/undersøkte.
+
+```{r}
+residualer <- residuals(modell)
+
+bins <- hist(residualer, plot = FALSE)
+
+n_bins <- length(bins$breaks) - 1
+
+hist(residualer, breaks = n_bins, freq = TRUE, 
+     main = "Histogram av Residualer", xlab = "Residualer")
+
+binwidth <- diff(bins$breaks)[1]
+
+scaled_dnorm <- function(x) {
+  dnorm(x, mean = mean(residualer), sd = sd(residualer)) * length(residualer) * binwidth
+}
+
+curve(scaled_dnorm, add = TRUE, col = "blue", lwd = 2)
+```
+
+```{r}
+mroz %>% ggplot(aes(fitted(modell), residuals(modell))) + geom_point() + geom_smooth() + geom_hline(yintercept = 0,color = 'red') + ggtitle("Spredningsplott residualer")
+```
+
+```{r}
+ggplot() + geom_qq(aes(sample = rstandard(modell))) + geom_abline(color = 'red') + labs(title = "Normal Q-Q plot")
+```
+
+a\) Kjør en multippel lineær regresjonsanalyse med minst to uavhengige variabler. Velg selv om du tilføyer en eller flere variabler til din tidligere analyse, eller om du lager en helt ny. Forklar hvorfor du har valgt denne kombinasjonen av variabler.
+
+```{r}
+modell_multippel_reg <- lm(mroz$educ ~ mroz$mothereduc + mroz$fathereduc)
+
+residualer_multippel <- residuals(modell_multippel_reg)
+```
+
+b\) Vis og forklar resultatene dine. Bruk grafer, tabeller, og output til å forklare din modell og hva modellen kan fortelle oss.
+
+```{r}
+summary(modell_multippel_reg)
+```
+
+```{r}
+library(gridExtra)
+
+plot1 <- mroz %>% ggplot(aes(x=educ,y=mothereduc)) + geom_point() + geom_smooth(method = "lm") + labs(title = 'Sammenhengen mellom døtrenes og mors utdanning') + geom_text(aes(x = max(educ), y = max(mothereduc), #Plassering av korrelasjons-koeffisient 
+                label = paste("Korrelasjon:", round(cor(educ,mothereduc), 2))),
+            hjust = 1, vjust = 1, size = 4, color = "red")
+
+plot2 <- mroz %>% ggplot(aes(x=educ,y=fathereduc)) + geom_point() + geom_smooth(method = "lm") + labs(title = 'Sammenhengen mellom døtrenes og fars utdanning') + geom_text(aes(x = max(educ), y = max(fathereduc), #Plassering av korrelasjons-koeffisient 
+                label = paste("Korrelasjon:", round(cor(educ,fathereduc), 2))),
+            hjust = 1, vjust = 1, size = 4, color = "red")
+
+grid.arrange(plot1,plot2)
+```
+
+```{r}
+mroz$fathereduc_cat <- cut(
+  mroz$fathereduc,
+  breaks = c(-Inf, 5, 11, Inf),
+  labels = c("Lav", "Middels", "Høy"),
+  right = FALSE
+)
+
+library(moderndive)
+
+mroz %>% ggplot(aes(x=educ,y=mothereduc, col = fathereduc_cat)) + geom_point() + labs(title = 'Sammenhengen mellom døtrenes utdanningslengde og mor og fars utdanning') + geom_parallel_slopes()
+```
+
+c\) Test hvorvidt modellen din bryter med antakelsene til multippel lineær regresjon. Vis og forklar hvordan du testet/undersøkte
+
+```{r}
+shapiro.test(residualer)
+shapiro.test(residualer_multippel)
+```
+
+```{r}
+mroz %>% ggplot(aes(fitted(modell_multippel_reg), residuals(modell_multippel_reg))) + geom_point() + geom_smooth() + geom_hline(yintercept = 0, color = 'red') + ggtitle('Spredningsplott residualer')
+```
+
+```{r}
+ggplot() + geom_qq(aes(sample = rstandard(modell_multippel_reg))) + geom_abline(color = 'red') + labs(title = "Normal Q-Q plot")
+```
+
+```{r}
+mroz %>% ggplot(aes(fitted(modell_multippel_reg), sqrt(abs(rstandard(modell_multippel_reg))))) + geom_point() + geom_smooth() + ggtitle("Homoskedastisitet")+ ylab("")
+```
+
+```{r}
+cor.test(mroz$fathereduc,mroz$mothereduc)
+```
+
+```{r}
+library(car)
+ncvTest(modell_multippel_reg)
+```
